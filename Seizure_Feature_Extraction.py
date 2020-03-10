@@ -54,6 +54,10 @@ def window_y(events, window_size, overlap, target=None, baseline=None):
     data_y = data_y.mode(1)
     # change nan back to baseline class
     data_y = data_y.fillna(baseline).values
+    # if there was nothing but baseline there will be an empty array
+    if data_y.size == 0:
+        data_y = np.array([baseline]*data_y.shape[0])
+        data_y = np.expand_dims(data_y, -1)
   
   else:
     # get the value most frequent in the window
@@ -309,7 +313,7 @@ def corr_reshape(matrix):
     return np.expand_dims(np.array(accum), axis=0)
 
 def entropy(data, feature_list, sf, channel_name=None):
-    from entropy import sample_entropy, spectral_entropy
+    from entropy.entropy import sample_entropy, spectral_entropy
     entropy_features = np.array([])
     feature_names = []
     
@@ -402,6 +406,7 @@ CLASS: Seizure_Features
 - scale
     - Whether to scale the data according to the mean so it has a standard deviation of 1.
     - Features based on frequency will be scaled in respect to each other.
+    - If scikitlearn is >= 0.20.0 then you can leave NAN's in for the input if scaling
 - target
     - the event target if doing binary classification
     - will override baseline if both provided
@@ -535,17 +540,7 @@ class Seizure_Features(BaseEstimator, TransformerMixin):
                     relative_power = bandpass_2/bandpass_1
                     
                     if self.scale:
-                        try:
-                          SS = StandardScaler()
-                          # scale data for each feature ratio separately, reshaping the data first
-                          relative_power_scaled = SS.fit_transform(relative_power.reshape(-1, 1))
-                          # reshape the data back to how it was
-                          relative_power = relative_power_scaled.reshape(relative_power.shape)
-                        # this is to deal with the occassional:
-                        # ValueError: Input contains infinity or a value too large for dtype...
-                        # I just turn the array into an NAN
-                        except:
-                          relative_power[:] = np.nan
+                        relative_power = frequency_scale(relative_power)
 
                     # append the data straight into the feature set
                     feature_set = feature_append(feature_set, relative_power)
